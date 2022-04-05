@@ -1882,8 +1882,8 @@ HdRenderIndex::GetSceneDelegateAndInstancerIds(SdfPath const &id,
 void
 HdRenderIndex::_InitPrimTypes()
 {
-    _sprimIndex.InitPrimTypes(_renderDelegate->GetSupportedSprimTypes());
-    _bprimIndex.InitPrimTypes(_renderDelegate->GetSupportedBprimTypes());
+    _sprimIndex.InitPrimTypes(_renderDelegate->GetSupportedSprimTypes(), _tracker);
+    _bprimIndex.InitPrimTypes(_renderDelegate->GetSupportedBprimTypes(), _tracker);
 }
 
 bool

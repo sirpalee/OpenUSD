@@ -49,7 +49,7 @@ Hd_PrimTypeIndex<PrimType>::~Hd_PrimTypeIndex()
 
 template <class PrimType>
 void
-Hd_PrimTypeIndex<PrimType>::InitPrimTypes(const TfTokenVector &primTypes)
+Hd_PrimTypeIndex<PrimType>::InitPrimTypes(const TfTokenVector &primTypes, HdChangeTracker& tracker)
 {
     size_t primTypeCount = primTypes.size();
     _entries.resize(primTypeCount);
@@ -57,6 +57,8 @@ Hd_PrimTypeIndex<PrimType>::InitPrimTypes(const TfTokenVector &primTypes)
     for (size_t typeIdx = 0; typeIdx < primTypeCount; ++typeIdx) {
         _index.emplace(primTypes[typeIdx], typeIdx);
     }
+
+    _TrackerInitPrimTypes(tracker, primTypes);
 }
 
 template <class PrimType>
@@ -117,7 +119,7 @@ Hd_PrimTypeIndex<PrimType>::InsertPrim(const TfToken    &typeId,
     }
 
     HdDirtyBits initialDirtyState = prim->GetInitialDirtyBitsMask();
-    _TrackerInsertPrim(tracker, primId, initialDirtyState);
+    _TrackerInsertPrim(tracker, primId, initialDirtyState, typeIt->second);
 
     _PrimTypeEntry &typeEntry = _entries[typeIt->second];
 
@@ -367,6 +369,11 @@ Hd_PrimTypeIndex<PrimType>::SyncPrims(HdChangeTracker  &tracker,
     for (size_t typeIdx = 0; typeIdx < numTypes; ++typeIdx) {
         _PrimTypeEntry &typeEntry =  _entries[typeIdx];
 
+        // No Sprim is dirty, early out.
+        if (!_TrackerGetAnyPrimDirty(tracker, typeIdx)) {
+            continue;
+        }
+
         for (typename _PrimMap::iterator primIt  = typeEntry.primMap.begin();
                                          primIt != typeEntry.primMap.end();
                                        ++primIt) {
@@ -390,6 +397,7 @@ Hd_PrimTypeIndex<PrimType>::SyncPrims(HdChangeTracker  &tracker,
                 }
             }
         }
+        _TrackerMarkAnyPrimClean(tracker, typeIdx);
     }
 }
 
@@ -417,9 +425,10 @@ template <>
 void
 Hd_PrimTypeIndex<HdSprim>::_TrackerInsertPrim(HdChangeTracker &tracker,
                                               const SdfPath  &path,
-                                              HdDirtyBits initialDirtyState)
+                                              HdDirtyBits initialDirtyState,
+                                              size_t typeIndex)
 {
-    tracker.SprimInserted(path, initialDirtyState);
+    tracker.SprimInserted(path, initialDirtyState, typeIndex);
 }
 
 template <>
@@ -439,6 +448,30 @@ Hd_PrimTypeIndex<HdSprim>::_TrackerGetPrimDirtyBits(HdChangeTracker &tracker,
                                                    const SdfPath &path)
 {
     return tracker.GetSprimDirtyBits(path);
+}
+
+template <>
+// static
+bool
+Hd_PrimTypeIndex<HdSprim>::_TrackerGetAnyPrimDirty(HdChangeTracker &tracker, size_t typeIdx)
+{
+    return tracker.IsAnySprimDirty(typeIdx);
+}
+
+template <>
+// static
+void
+Hd_PrimTypeIndex<HdSprim>::_TrackerMarkAnyPrimClean(HdChangeTracker &tracker, size_t typeIdx)
+{
+    tracker.MarkAnySprimClean(typeIdx);
+}
+
+template <>
+//static 
+void 
+Hd_PrimTypeIndex<HdSprim>::_TrackerInitPrimTypes(HdChangeTracker &tracker, TfTokenVector const& primTypes)
+{
+    tracker.InitSprimTypes(primTypes);
 }
 
 template <>
@@ -493,8 +526,10 @@ template <>
 void
 Hd_PrimTypeIndex<HdBprim>::_TrackerInsertPrim(HdChangeTracker &tracker,
                                               const SdfPath   &path,
-                                              HdDirtyBits     initialDirtyState)
+                                              HdDirtyBits     initialDirtyState,
+                                              size_t          typeIndex)
 {
+    TF_UNUSED(typeIndex);
     tracker.BprimInserted(path, initialDirtyState);
 }
 
@@ -514,6 +549,34 @@ Hd_PrimTypeIndex<HdBprim>::_TrackerGetPrimDirtyBits(HdChangeTracker &tracker,
                                                     const SdfPath   &path)
 {
     return tracker.GetBprimDirtyBits(path);
+}
+
+template <>
+// static
+bool
+Hd_PrimTypeIndex<HdBprim>::_TrackerGetAnyPrimDirty(HdChangeTracker &tracker, size_t typeIdx)
+{
+    TF_UNUSED(tracker);
+    TF_UNUSED(typeIdx);
+    return true;
+}
+
+template <>
+// static
+void
+Hd_PrimTypeIndex<HdBprim>::_TrackerMarkAnyPrimClean(HdChangeTracker &tracker, size_t typeIdx)
+{
+    TF_UNUSED(tracker);
+    TF_UNUSED(typeIdx);
+}
+
+template <>
+//static 
+void 
+Hd_PrimTypeIndex<HdBprim>::_TrackerInitPrimTypes(HdChangeTracker &tracker, TfTokenVector const& primTypes)
+{
+    TF_UNUSED(tracker);
+    TF_UNUSED(primTypes);
 }
 
 template <>

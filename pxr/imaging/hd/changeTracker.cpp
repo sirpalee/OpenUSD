@@ -561,12 +561,17 @@ HdChangeTracker::MarkInstancerClean(SdfPath const& id, HdDirtyBits newBits)
 // -------------------------------------------------------------------------- //
 
 void
-HdChangeTracker::SprimInserted(SdfPath const& id, HdDirtyBits initialDirtyState)
+HdChangeTracker::SprimInserted(SdfPath const& id, HdDirtyBits initialDirtyState, size_t typeIndex)
 {
     TF_DEBUG(HD_SPRIM_ADDED).Msg("Sprim Added: %s\n", id.GetText());
-    _sprimState[id] = initialDirtyState;
+    _sprimState[id] = std::make_pair(initialDirtyState, typeIndex);
     ++_sceneStateVersion;
     ++_sprimIndexVersion;
+    if (TF_VERIFY(typeIndex < _anySprimDirty.size())) {
+        _anySprimDirty[typeIndex] = true;
+    } else {
+        std::fill(_anySprimDirty.begin(), _anySprimDirty.end(), true);
+    }
 }
 
 void
@@ -581,10 +586,10 @@ HdChangeTracker::SprimRemoved(SdfPath const& id)
 HdDirtyBits
 HdChangeTracker::GetSprimDirtyBits(SdfPath const& id)
 {
-    _IDStateMap::iterator it = _sprimState.find(id);
+    auto it = _sprimState.find(id);
     if (!TF_VERIFY(it != _sprimState.end()))
         return Clean;
-    return it->second;
+    return it->second.first;
 }
 
 void
@@ -612,10 +617,10 @@ HdChangeTracker::MarkSprimDirty(SdfPath const& id, HdDirtyBits bits)
 void
 HdChangeTracker::_MarkSprimDirty(SdfPath const& id, HdDirtyBits bits)
 {
-    _IDStateMap::iterator it = _sprimState.find(id);
+    auto it = _sprimState.find(id);
     if (!TF_VERIFY(it != _sprimState.end()))
         return;
-    it->second = it->second | bits;
+    it->second.first = it->second.first | bits;
 
     // Mark any associated sprims dirty. Unfortunately, we don't know what to 
     // set dirty, so we resort to ~Clean (as we can't use the rprim AllDirty for
@@ -628,15 +633,48 @@ HdChangeTracker::_MarkSprimDirty(SdfPath const& id, HdDirtyBits bits)
     }
 
     ++_sceneStateVersion;
+
+    size_t typeIndex = it->second.second;
+    if (TF_VERIFY(typeIndex < _anySprimDirty.size())) {
+        _anySprimDirty[typeIndex] = true;
+    } else {
+        std::fill(_anySprimDirty.begin(), _anySprimDirty.end(), true);
+    }
 }
 
 void
 HdChangeTracker::MarkSprimClean(SdfPath const& id, HdDirtyBits newBits)
 {
-    _IDStateMap::iterator it = _sprimState.find(id);
+    auto it = _sprimState.find(id);
     if (!TF_VERIFY(it != _sprimState.end()))
         return;
-    it->second = newBits;
+    it->second.first = newBits;
+}
+
+
+void
+HdChangeTracker::MarkAnySprimClean(size_t typeIdx)
+{
+    if (TF_VERIFY(typeIdx < _anySprimDirty.size())) {
+        _anySprimDirty[typeIdx] = false;
+    }
+}
+
+bool
+HdChangeTracker::IsAnySprimDirty(size_t typeIdx)
+{
+    if (!TF_VERIFY(typeIdx < _anySprimDirty.size())) {
+        return true;
+    }
+
+    return _anySprimDirty[typeIdx];
+}
+
+void
+HdChangeTracker::InitSprimTypes(TfTokenVector const& primTypes)
+{
+    _anySprimDirty.clear();
+    _anySprimDirty.resize(primTypes.size(), true); // initially all types are dirty
 }
 
 // -------------------------------------------------------------------------- //

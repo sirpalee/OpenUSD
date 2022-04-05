@@ -393,9 +393,9 @@ public:
     /// @{
     // ---------------------------------------------------------------------- //
 
-    /// Start tracking sprim with the given \p id.
+    /// Start tracking sprim with the given \p id and \p typeIndex.
     HD_API
-    void SprimInserted(SdfPath const& id, HdDirtyBits initialDirtyState);
+    void SprimInserted(SdfPath const& id, HdDirtyBits initialDirtyState, size_t typeIndex);
 
     /// Stop tracking sprim with the given \p id.
     HD_API
@@ -412,6 +412,18 @@ public:
     /// Set the dirty flags to \p newBits.
     HD_API
     void MarkSprimClean(SdfPath const& id, HdDirtyBits newBits=Clean);
+
+    // Initializes a new list that holds per prim type dirty information using \p primTypes.
+    HD_API
+    void InitSprimTypes(TfTokenVector const &primTypes);
+
+    /// Check if any sprim of given \p typeIdx type is dirty.
+    HD_API
+    bool IsAnySprimDirty(size_t typeIdx);
+
+    /// Mark any sprim of \p typeIdx type to clean.
+    HD_API
+    void MarkAnySprimClean(size_t typeIdx);
 
     /// Insert a dependency between \p sprimId and parent sprim
     /// \p parentSprimId.
@@ -572,6 +584,7 @@ private:
                                 SdfPath const& id, bool hit);
 
     typedef TfHashMap<SdfPath, HdDirtyBits, SdfPath::Hash> _IDStateMap;
+    typedef TfHashMap<SdfPath, std::pair<HdDirtyBits, size_t>, SdfPath::Hash> _IDStateTypeMap;
     typedef TfHashMap<TfToken, int, TfToken::HashFunctor> _CollectionStateMap;
     typedef TfHashMap<TfToken, unsigned, TfToken::HashFunctor> _GeneralStateMap;
 
@@ -589,7 +602,7 @@ private:
     _IDStateMap _rprimState;
     _IDStateMap _instancerState;
     _IDStateMap _taskState;
-    _IDStateMap _sprimState;
+    _IDStateTypeMap _sprimState;
     _IDStateMap _bprimState;
     _GeneralStateMap _generalState;
 
@@ -628,6 +641,9 @@ private:
     unsigned _sprimIndexVersion;
     unsigned _bprimIndexVersion;
     unsigned _instancerIndexVersion;
+
+    // Aggregate dirty bit per sprim type.
+    std::vector<bool> _anySprimDirty;
 
     // The following tracks any changes of state.  As a result it is very broad.
     // The use case to detect, when no changes have been made, as to

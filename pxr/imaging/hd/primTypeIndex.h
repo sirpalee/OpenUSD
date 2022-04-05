@@ -56,7 +56,7 @@ public:
     /// Initialize this prim index, specifying the typeId tokens
     /// that should be supported by this index.
     ///
-    void InitPrimTypes(const TfTokenVector &primTypes);
+    void InitPrimTypes(const TfTokenVector &primTypes, HdChangeTracker& tracker);
 
     ///
     /// Removes and frees all prims in this index.
@@ -196,13 +196,20 @@ private:
     // These are to handle prim type specific function names on called objects.
     static void _TrackerInsertPrim(HdChangeTracker &tracker,
                                    const SdfPath &path,
-                                   HdDirtyBits initialDirtyState);
+                                   HdDirtyBits initialDirtyState,
+                                   size_t typeIndex);
 
     static void _TrackerRemovePrim(HdChangeTracker &tracker,
                                    const SdfPath &path);
 
     static HdDirtyBits _TrackerGetPrimDirtyBits(HdChangeTracker &tracker,
                                                 const SdfPath &path);
+
+    static bool _TrackerGetAnyPrimDirty(HdChangeTracker &tracker, size_t typeIdx);
+
+    static void _TrackerMarkAnyPrimClean(HdChangeTracker &tracker, size_t typeIdx);
+
+    static void _TrackerInitPrimTypes(HdChangeTracker &tracker, const TfTokenVector &primTypes);
 
     static void _TrackerMarkPrimClean(HdChangeTracker &tracker,
                                       const SdfPath &path,
